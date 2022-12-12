@@ -2,6 +2,10 @@
 #+author: Windymelt
 #+date:   2022-12-12
 
+#+html_head: <style> @font-face {font-family: "Berkeley Mono"; src: url("https://www.3qe.us/webfont/BerkeleyMono-Regular.woff2") format("woff2"), url("https://www.3qe.us/webfont/BerkeleyMono-Regular.woff") format("woff");} </style>
+
+#+html_head: <style> p { line-height:1.2; } pre { font-family: Berkeley Mono; } </style>
+
 #+begin_center
 #+begin_export html
 <a href="https://b.hatena.ne.jp/entry/" class="hatena-bookmark-button" data-hatena-bookmark-layout="vertical-normal" data-hatena-bookmark-lang="en" title="このエントリーをはてなブックマークに追加"><img src="https://b.st-hatena.com/images/v4/public/entry-button/button-only@2x.png" alt="このエントリーをはてなブックマークに追加" width="20" height="20" style="border: none;" /></a><script type="text/javascript" src="https://b.st-hatena.com/js/bookmark_button.js" charset="utf-8" async="async"></script>
@@ -12,7 +16,7 @@
 
 #+begin_export html
 <link rel="stylesheet"
-      href="./highlight/styles/default.min.css">
+      href="./highlight/styles/dark.min.css">
 <script src="./highlight/highlight.min.js"></script>
 #+end_export
 
@@ -122,3 +126,14 @@ Shapelessでは、異なる型同士を一つに結び付けるための手段�
 * 参考文献
 
 - underscoreioによる [[https://underscore.io/books/shapeless-guide/][The Type Astronaut's Guide to Shapeless]] (英語) はshapelessの仕組みを順に解説してくれる良著です。shapelessの各構成要素について知りたい場合は必ず読むと良いでしょう。
+
+#+begin_export html
+<script>
+console.log('highlighting codes');
+hljs.configure({
+  languages: ['scala'],
+  cssSelector:'pre'
+})
+hljs.highlightAll();
+</script>
+#+end_export

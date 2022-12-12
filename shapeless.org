@@ -4,7 +4,7 @@
 
 #+html_head: <style> @font-face {font-family: "Berkeley Mono"; src: url("https://www.3qe.us/webfont/BerkeleyMono-Regular.woff2") format("woff2"), url("https://www.3qe.us/webfont/BerkeleyMono-Regular.woff") format("woff");} </style>
 
-#+html_head: <style> p { line-height:1.2; } pre { font-family: Berkeley Mono; } </style>
+#+html_head: <style> p { line-height:1.2; } pre, code { font-family: Berkeley Mono; } </style>
 
 #+begin_center
 #+begin_export html
@@ -34,7 +34,7 @@ libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.5"
 
 *** この記事で使うScalaについて
 
-この記事は、Scala 2.23.8に基いて執筆されています。Scala 3系においてもshapelessを利用することはできますが、執筆時点で筆者はScala 3に関する知識を十分に持ち合わせていませんから、Scala 3における動作に関する記述は割愛します。
+この記事は、Scala 2.13.8に基いて執筆されています。Scala 3系においてもshapelessを利用することはできますが、執筆時点で筆者はScala 3に関する知識を十分に持ち合わせていませんから、Scala 3における動作に関する記述は割愛します。
 
 ** ジェネリックプログラミング
 
@@ -42,7 +42,7 @@ libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.5"
 
 ジェネリックプログラミングは、JavaやScalaにおけるジェネリクスとは関係ありません。
 
-*** ジェネリックプログラミング(shapeless)が必要になる例
+*** <<genericquote>>ジェネリックプログラミング(shapeless)が必要になる例
 
 - 同じ型の要素を同じ順序で持つcase class同士を相互変換する
 - 異なる型が混在し、なおかつ型安全な =Map= を利用する
@@ -51,11 +51,9 @@ libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.5"
 
 ** Shapelessに登場する基礎概念
 
-*** Scalaにおける型を組み合わせる手段たちの復習
+Shapelessでは、型同士を組み合わせたり取り出したりします。この節では、この目的を達成するために用意されている道具のうち基礎的なものを紹介します。
 
-Shapelessでは、型同士を組み合わせたり取り出したりします。この節では、shapelessの理解をより深めるために、現在Scalaで型を組み合わせるために用意されているいくつかの方法について復習します。
-
-先程、 [[ジェネリックプログラミング]] で以下のように述べました。
+先程、 [[genericquote]] で以下のように述べました。
 
 #+begin_quote
 ジェネリックプログラミングとは、クラスや型といった具体的な要素から「構造」という要素を取り出し、それ単体で物事をうまく扱おうという考え方を指しています。
@@ -63,6 +61,12 @@ Shapelessでは、型同士を組み合わせたり取り出したりします�
 
 では、 *構造* とは何でしょう。数学的な難しい話は割愛しますが、 *代数的データ型(Algebraic Data Types, ADTs)* を用いることで再帰を含む複雑な持ったデータ型を表現できることがわかっています。
 ADTsを表現するためにScalaに最初から備わっている機能として、 *タプル* 、 *=Either=* 、 *クラス* 、 *=sealed trait=* などがあります。そしてshapelessは、ADTsを専門に扱うためのライブラリです。
+
+まずはScalaに備わっているADTsをサポートするための機能がどのような性質を持つか復習しましょう。
+
+*** Scalaにおける型を組み合わせる手段たちの復習
+
+この節では、shapelessの理解をより深めるために、現在Scalaで型を組み合わせるために用意されているいくつかの方法について復習します。
 
 プログラミングではしばしば、型を単独で使うのではなく、複数の型を組み合わせて利用します。Scalaをはじめとした現代の言語では、複数の型を組み合わせるための言語機能を豊富に提供します。
 

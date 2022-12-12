@@ -16,7 +16,7 @@
 
 #+begin_export html
 <link rel="stylesheet"
-      href="./highlight/styles/dark.min.css">
+      href="./highlight/styles/mono-blue.min.css">
 <script src="./highlight/highlight.min.js"></script>
 #+end_export
 

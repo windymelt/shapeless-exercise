@@ -1,0 +1,120 @@
+#+title:  入門 Shapeless
+#+author: Windymelt
+#+date:   2022-12-12
+
+#+begin_center
+#+begin_export html
+<a href="https://b.hatena.ne.jp/entry/" class="hatena-bookmark-button" data-hatena-bookmark-layout="vertical-normal" data-hatena-bookmark-lang="en" title="このエントリーをはてなブックマークに追加"><img src="https://b.st-hatena.com/images/v4/public/entry-button/button-only@2x.png" alt="このエントリーをはてなブックマークに追加" width="20" height="20" style="border: none;" /></a><script type="text/javascript" src="https://b.st-hatena.com/js/bookmark_button.js" charset="utf-8" async="async"></script>
+#+end_export
+#+end_center
+
+* 入門 Shapeless
+
+#+begin_export html
+<link rel="stylesheet"
+      href="./highlight/styles/default.min.css">
+<script src="./highlight/highlight.min.js"></script>
+#+end_export
+
+** はじめに
+
+この記事では、プログラミング言語 [[https://scala-lang.org][Scala]] において *ジェネリックプログラミング* を行うためのライブラリである *[[https://github.com/milessabin/shapeless][shapeless]]* の基本的な利用方法を解説します。
+
+*** この記事で使うshapelessについて
+
+この記事は、 shapeless 2.3.5 に基いて執筆されています。当該バージョンのshapelessは、 =build.sbt= において以下のようにインストール可能です:
+
+#+begin_example scala
+libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.5"
+#+end_example
+
+*** この記事で使うScalaについて
+
+この記事は、Scala 2.23.8に基いて執筆されています。Scala 3系においてもshapelessを利用することはできますが、執筆時点で筆者はScala 3に関する知識を十分に持ち合わせていませんから、Scala 3における動作に関する記述は割愛します。
+
+** ジェネリックプログラミング
+
+ジェネリックプログラミングとは、特定のclassやtraitに依存しない処理を、実際にそのclassやtraitを用いずに実装することを指します。
+
+ジェネリックプログラミングは、JavaやScalaにおけるジェネリクスとは関係ありません。
+
+*** ジェネリックプログラミング(shapeless)が必要になる例
+
+- 同じ型の要素を同じ順序で持つcase class同士を相互変換する
+- 異なる型が混在し、なおかつ型安全な =Map= を利用する
+
+いずれにせよ、ジェネリックプログラミングとは、クラスや型といった具体的な要素から「構造」という要素を取り出し、それ単体で物事をうまく扱おうという考え方を指しています。
+
+** Shapelessに登場する基礎概念
+
+*** Scalaにおける型を組み合わせる手段たちの復習
+
+Shapelessでは、型同士を組み合わせたり取り出したりします。この節では、shapelessの理解をより深めるために、現在Scalaで型を組み合わせるために用意されているいくつかの方法について復習します。
+
+プログラミングではしばしば、型を単独で使うのではなく、複数の型を組み合わせて利用します。Scalaをはじめとした現代の言語では、複数の型を組み合わせるための言語機能を豊富に提供します。
+
+- タプル
+- =Either=
+- クラス
+- =sealed trait= (Enum)
+
+*タプル* は、複数の型を組み合わせて1つの型にします。タプル自体は最も単純な型コンストラクタ[fn::値を持ちうる通常の意味での型ではなく、型を代入することで型を生成する、関数のような型のことを型コンストラクタと呼びます。]の一つであり、それ自体多くの機能を持ちませんが、複数の型を一つにし、それをまた分解できるという最も基本的な機能を提供します。
+
+#+begin_example scala
+type StringIntTuple = Tuple2[String, Int]
+/* もしくは */
+type StringIntTuple = (String, Int)
+val tupled: StringIntTuple = ("hoge", 42)
+tupled._1 // => "hoge"
+tupled._2 // => 42
+#+end_example
+
+*=Either=* も複数の型を組み合わせて1つの型にしますが、タプルとは違い、どちらかの型であることを表現します。
+実際に値を入れたり取り出したりする際には、 =Left= と =Right= とを用いてどちらの型かを教えます:
+
+#+begin_example scala
+type StringIntEither = Either[String, Int]
+val l: StringIntEither = Left("hoge")
+val r: StringIntEither = Right(42)
+#+end_example
+
+*クラス* は、ある意味タプルの強化版です。なぜなら、複数の型を名前付きのフィールドとして持ち、さらに手続きをメソッドとして持っているからです:
+
+#+begin_example scala
+case class FooClass(s: String, i: Int) {
+  def toString(): String = s"s: $s, i: $i"
+}
+#+end_example
+
+*=sealed trait=* もまた、 =Either= の強化版です。なぜなら、 =Either= が提供する「型を選ぶ」という機能に付け加えて、それぞれの名前が提供されるからです。
+
+Scalaユーザにとってお馴染の =Option= も =sealed trait= で実装されています:
+
+#+begin_example scala
+sealed trait Option[+A]
+case class Some[+A](x: A) extends Option[A]
+case object None extends Option[Nothing]
+#+end_example
+
+*Scalaには複数の型を組み合わせて1つにするための機能がいくつも用意されている* ことが分かりましたね。
+
+それぞれの機能には以下のような共通点があることを確認してください:
+
+- 名前を付けられるものと、付けられないものがある。
+  - 名前を付けられる: クラス、 =sealed trait=
+  - 名前を付けられない: =Tuple= 、 =Either=
+- 3つ以上の型を組み合わせられるものと、組み合わせられないものがある。
+  - 組み合わせられる: =Tuple= (ただし、 =Tuple22= までしか用意されていないので22個が上限)、クラス、 =sealed trait=
+  - 組み合わせられない: =Either=
+
+*** HList, HNil
+
+Shapelessでは、異なる型同士を一つに結び付けるための手段として =HList= を用意しています。 =HList= は、前項で登場したタプルと似た振舞いをします。つまり、複数の型を1つにし、その値が両方の型の値を持つことを保証します。
+
+#+begin_example scala
+
+#+end_example
+
+* 参考文献
+
+- underscoreioによる [[https://underscore.io/books/shapeless-guide/][The Type Astronaut's Guide to Shapeless]] (英語) はshapelessの仕組みを順に解説してくれる良著です。shapelessの各構成要素について知りたい場合は必ず読むと良いでしょう。

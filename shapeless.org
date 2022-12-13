@@ -1,4 +1,4 @@
-#+title:  入門 Shapeless
+#+title:  入門⚡Shapeless
 #+author: Windymelt
 #+date:   2022-12-12
 
@@ -12,7 +12,7 @@
 #+end_export
 #+end_center
 
-* 入門 Shapeless
+* 入門⚡Shapeless
 
 #+begin_export html
 <link rel="stylesheet"
@@ -22,11 +22,11 @@
 
 ** はじめに
 
-この記事では、プログラミング言語 [[https://scala-lang.org][Scala]] において *ジェネリックプログラミング* を行うためのライブラリである *[[https://github.com/milessabin/shapeless][shapeless]]* の基本的な利用方法を解説します。
+この記事では、プログラミング言語 [[https://scala-lang.org][Scala]] において *ジェネリックプログラミング(Generic Programming)* を行うためのライブラリである *[[https://github.com/milessabin/shapeless][shapeless]]* の基本的な利用方法を解説します。
 
 *** この記事で使うshapelessについて
 
-この記事は、 shapeless 2.3.5 に基いて執筆されています。当該バージョンのshapelessは、 =build.sbt= において以下のようにインストール可能です:
+この記事は、 shapeless 2.3.5 に基いて執筆されています。当該バージョンのshapelessは、 =build.sbt= において以下のようにインストールできます:
 
 #+begin_example scala
 libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.5"
@@ -38,9 +38,9 @@ libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.5"
 
 ** ジェネリックプログラミング
 
-ジェネリックプログラミングとは、特定のclassやtraitに依存しない処理を、実際にそのclassやtraitを用いずに実装することを指します。
+ジェネリックプログラミングとは、ある問題領域における *構造* を表現する手段として具体的なclassやtraitを使わず、より抽象的な道具を用いて構造を表現するプログラミング手法です。
 
-ジェネリックプログラミングは、JavaやScalaにおけるジェネリクスとは関係ありません。
+また、ジェネリックプログラミングは、JavaやScalaにおけるジェネリクスとは関係ないため注意が必要です。
 
 *** <<genericquote>>ジェネリックプログラミング(shapeless)が必要になる例
 
@@ -53,6 +53,8 @@ libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.5"
 
 Shapelessでは、型同士を組み合わせたり取り出したりします。この節では、この目的を達成するために用意されている道具のうち基礎的なものを紹介します。
 
+*** 代数的データ型(ADTs)
+
 先程、 [[genericquote]] で以下のように述べました。
 
 #+begin_quote
@@ -60,15 +62,21 @@ Shapelessでは、型同士を組み合わせたり取り出したりします�
 #+end_quote
 
 では、 *構造* とは何でしょう。数学的な難しい話は割愛しますが、 *代数的データ型(Algebraic Data Types, ADTs)* を用いることで再帰を含む複雑な持ったデータ型を表現できることがわかっています。
-ADTsを表現するためにScalaに最初から備わっている機能として、 *タプル* 、 *=Either=* 、 *クラス* 、 *=sealed trait=* などがあります。そしてshapelessは、ADTsを専門に扱うためのライブラリです。
+そして、多くの言語ではこのADTsを言語レベルである程度サポートするための機能が備えられており、Scalaもこうした言語のうちの一つです。
+
+ADTsは、 **直積(Product)** と **直和(Coproduct、 余積とも)** から成るデータ型の総称です。
+数学的な詳細な説明は割愛しますが、直積は複数のデータ型をくっつけて _両方のデータを同時に表現できるようにした_ ものであり、直和は複数のデータ型をくっつけて _このうちどれか一つを表現できるようにした_ ものです。
+この2つを組み合わせることでADTsは様々な抽象的なデータ型を表現する能力を得ます。
+
+例えば、よく知られたデータ構造である[[https://ja.wikipedia.org/wiki/%E4%BA%8C%E5%88%86%E6%9C%A8][二分木]]は「木か葉[fn::木構造において、それ以上木構造が深くならないような部分のことを葉と呼びます。]のいずれか」という直和型を2つ合わせて直積にしたものと考えることができ、ADTsで表現することができます。
+
+ADTsを表現するためにScalaに最初から備わっている機能として、 *タプル* 、 *=Either=* 型 、 *クラス* 、 *=sealed trait=* などがあります。そしてshapelessは、ADTsを専門に扱うためのライブラリです。
 
 まずはScalaに備わっているADTsをサポートするための機能がどのような性質を持つか復習しましょう。
 
-*** Scalaにおける型を組み合わせる手段たちの復習
+*** <<scala-adts>>ScalaにおけるADTsをサポートする手段
 
-この節では、shapelessの理解をより深めるために、現在Scalaで型を組み合わせるために用意されているいくつかの方法について復習します。
-
-プログラミングではしばしば、型を単独で使うのではなく、複数の型を組み合わせて利用します。Scalaをはじめとした現代の言語では、複数の型を組み合わせるための言語機能を豊富に提供します。
+この節では、shapelessの理解をより深めるために、Scalaで型を組み合わせるために用意されているいくつかの方法について復習します。
 
 *タプル* は、複数の型を組み合わせて1つの型にします。タプル自体は最も単純な型コンストラクタ[fn::値を持ちうる通常の意味での型ではなく、型を代入することで型を生成する、関数のような型のことを型コンストラクタと呼びます。]の一つであり、それ自体多くの機能を持ちませんが、複数の型を一つにし、それをまた分解できるという最も基本的な機能を提供します。
 
@@ -119,17 +127,31 @@ case object None extends Option[Nothing]
   - 組み合わせられる: =Tuple= (ただし、 =Tuple22= までしか用意されていないので22個が上限)、クラス、 =sealed trait=
   - 組み合わせられない: =Either=
 
-*** HList, HNil
+*** Shapeless
 
-Shapelessでは、異なる型同士を一つに結び付けるための手段として =HList= を用意しています。 =HList= は、前項で登場したタプルと似た振舞いをします。つまり、複数の型を1つにし、その値が両方の型の値を持つことを保証します。
+[[scala-adts][前項]]では、Scalaの言語機能でもある程度ADTsを実装できることを示しました。しかしながら、Scalaの標準言語機能のみを使ってADTsを実装する場合、以下のような制約が伴います:
+
+- =Tuple= が22要素までにしか対応しておらず、これを超えるような直積をともなうADTsを表現できない。
+- =TupleN= と =TupleN-1= , =TupleN+1= との間に型的な関連がほぼ無いため、相互運用性が低い。
+- クラスや =sealed trait= を用いたADTsは、型が具体的すぎるため柔軟性が低い。
+- =Either= は2要素にしか対応しておらず、2要素を越えるADTsを表現するためには複数の =Either= を組み合わせる必要があるが、その運用は複雑を極める。
+
+** HList, HNil
+
+Shapelessでは、直積を表現するためのデータ型として =HList= を用意しています。 =HList= は、前項で登場したタプルと似た振舞いをします。つまり、複数の型を1つにし、その値が両方の型の値を持つことを保証します。
 
 #+begin_example scala
-
+import shapeless.{::, HNil}
+type IntStringHList = Int :: String:: HNil
+val hlis: IntStringHList = 42 :: "foo" :: HNil
+// hlis: shapeless.::[Int, shapeless.::[String, HNil]] = 42 :: "foo" :: HNil
 #+end_example
 
 * 参考文献
 
-- underscoreioによる [[https://underscore.io/books/shapeless-guide/][The Type Astronaut's Guide to Shapeless]] (英語) はshapelessの仕組みを順に解説してくれる良著です。shapelessの各構成要素について知りたい場合は必ず読むと良いでしょう。
+** <<underscoreio>>The Type Astronaut's Guide to Shapeless
+
+underscoreioによる [[https://underscore.io/books/shapeless-guide/][The Type Astronaut's Guide to Shapeless]] (英語) はshapelessの仕組みを順に解説してくれる良著です。shapelessの各構成要素について知りたい場合は必ず読むと良いでしょう。
 
 #+begin_export html
 <script>

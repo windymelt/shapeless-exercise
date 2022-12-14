@@ -5,6 +5,7 @@
 #+html_head: <style> @font-face {font-family: "Berkeley Mono"; src: url("https://www.3qe.us/webfont/BerkeleyMono-Regular.woff2") format("woff2"), url("https://www.3qe.us/webfont/BerkeleyMono-Regular.woff") format("woff");} </style>
 
 #+html_head: <style> p { line-height:1.2; } pre, code { font-family: Berkeley Mono; } </style>
+#+html_head: <style>table {margin-left:auto; margin-right:auto;}</style>
 
 #+begin_center
 #+begin_export html
@@ -48,10 +49,12 @@ libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.5"
 - 異なる型が混在し、なおかつ型安全な =Map= を利用する
 
 いずれにせよ、ジェネリックプログラミングとは、クラスや型といった具体的な要素から「構造」という要素を取り出し、それ単体で物事をうまく扱おうという考え方を指しています。
+ジェネリップログラミングを使うと、構造と構成要素の型を維持しつつ、 =class= や =trait=
+の垣根を飛び越えてデータを操作できるようになります。
 
 ** Shapelessに登場する基礎概念
 
-Shapelessでは、型同士を組み合わせたり取り出したりします。この節では、この目的を達成するために用意されている道具のうち基礎的なものを紹介します。
+Shapelessでは、型同士を組み合わせたり取り出したりします。この節では、この目的を達成するために用意されている道具のうち基礎的なものを紹介します。代数的データ型について知っている場合は読み飛ばしてかまいません。
 
 *** 代数的データ型(ADTs)
 
@@ -150,6 +153,13 @@ val hlis: IntStringHList = 42 :: "foo" :: HNil
 // hlis: shapeless.::[Int, shapeless.::[String, HNil]] = 42 :: "foo" :: HNil
 #+end_example
 
+=::= と =HNil= は =HList= のサブタイプです。
+
+#+begin_example scala
+val hlis: HList = 10 :: "bar" :: HNil
+val hn: HList = HNil
+#+end_example
+
 形が分かっている =HList= からは型安全に値を取り出すことができます:
 
 #+begin_example scala
@@ -196,6 +206,26 @@ Scalaには2-arityの型を中置する記法がある[fn::https://stackoverflow
 
 #+RESULTS[1259b5d991ffb75a6fd23671e1565095c737c2bd]:
 [[file:hlist.png]]
+
+*** case class との違い
+
+先程の =hlis= とほぼ同じ内容のものを =case class= で作成して比較してみます。
+
+#+begin_example scala
+case class Hlis(first: Int, second: String)
+val hlis2 = Hlis(42, "foo")
+#+end_example
+
+=case class= で作った =hlis2= は、 =Hlis= という固有のクラス名・フィールド名を持っています。 =hlis= は =HList=
+である以外に何も情報を持ちません。いくつかの性質を表にまとめました:
+
+| 性質                         | case class | HList | Tuple |
+|------------------------------+------------+-------+-------|
+| いくつでもフィールドを持てる | true       | true  | false |
+| 型が固有名を持つ             | true       | false | false |
+| 型がフィールド名を持つ       | true       | false | false |
+
+=HList= は、 =case class= ほど強い表現力を持たない代わりに、強い柔軟性を持つことができています。
 
 ** Coproduct
 
@@ -275,7 +305,6 @@ val ec: Errors = ErrorC("injecting").inject[Errors] // => Inr(Inr(Inl(ErrorC(...
 
 リボルバー銃の弾倉を回す操作と、引き金を引く操作になぞらえると分かりやすいかもしれません。必要な数だけ弾倉を回し、引き金を引くことで望みの型が飛び出すのです。
 
-
 ** Record
 
 前項では、 =HList= を構築する方法と =Coproduct= を構築する方法について学びました。ここでは =HList= にフィールド名の概念を追加した Record について学びます。
@@ -290,6 +319,10 @@ Recordはちょうど型安全でポリモーフィックな =Map= のように�
 import shapeless.syntax.singleton._ // ->>のために必要
 val hashFoo = ("foo" ->> "bar") :: ("hoge" ->> 42) :: HNil // フィールド"foo"と"bar"を持つRecordを作成
 #+end_example
+
+Recordの型は、 =FieldType[K, V]=
+[fn::https://github.com/milessabin/shapeless/blob/417d34b7f30b8be89a80fca7802c159aedac85f5/core/shared/src/main/scala/shapeless/labelled.scala#L25]を集めた =HList= になります。
+上の例では、 =hashFoo= の型は =FieldType[String, String] :: FieldType[String, Int] :: HNil= です。
 
 ** 任意のADTsに対して操作を定義する
 

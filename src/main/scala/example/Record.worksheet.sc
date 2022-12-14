@@ -21,10 +21,40 @@ val hlis = 42 :: "foo" :: HNil
 import shapeless.:: // 値を作るときの::はメソッドなので区別すること
 type IS = Int :: String :: HNil
 
+hlis match {
+  case (i: Int) :: (s: String) :: HNil => s"int: $i, string: $s"
+}
+
+def stringifyIntString(is: IS): String = {
+  val i = is.head
+  val s = is.tail.head
+  s"int: $i, string: $s"
+}
+
+import shapeless.HList
+def unknownHList(hl: HList): Int = {
+  hl.productArity
+}
+unknownHList(hlis)
+
 // 基礎概念: Coproduct: 「どちらかの型」を表現する型
 // EitherをList風に扱いやすくしたものと考える
-import shapeless.{:+:, CNil}
+import shapeless.{:+:, CNil, Inl, Inr}
 type IntOrString = Int :+: String :+: CNil
+
+case class ErrorA(msg: String)
+case class ErrorB(msg: String)
+case class ErrorC(msg: String)
+case class ErrorD(msg: String)
+type Errors = ErrorA :+: ErrorB :+: ErrorC :+: ErrorD :+: CNil
+val ea: Errors = Inl(ErrorA("error a"))
+
+import shapeless.syntax.inject._
+val ec: Errors = ErrorC("injecting").inject[Errors]
+val iosx: IntOrString = 42.inject[IntOrString]
+
+import shapeless.ops.coproduct.Inject // for converter object
+val s3: IntOrString = Inject[IntOrString, String].apply("foo")
 
 // inl / inr
 // Coproductの要素にアクセスするには、Inl / Inrという仕組みを使う
@@ -32,6 +62,7 @@ type IntOrString = Int :+: String :+: CNil
 // 型L | RからはLとRとを取り出す単射がそれぞれ存在することから
 import shapeless.{Inl, Inr}
 val ios1: IntOrString = Inl(42)
+val ios2: IntOrString = Inr(Inl("foo"))
 
 // 最小限のRecordを作るには2つのimportが必要
 import shapeless.HNil

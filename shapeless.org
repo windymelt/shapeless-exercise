@@ -36,11 +36,11 @@ libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.5"
 
 この記事は、Scala 2.13.8に基いて執筆されています。Scala 3系においてもshapelessを利用することはできますが、執筆時点で筆者はScala 3に関する知識を十分に持ち合わせていませんから、Scala 3における動作に関する記述は割愛します。
 
-** ジェネリックプログラミング
+** ジェネリックプログラミングとは
 
 ジェネリックプログラミングとは、ある問題領域における *構造* を表現する手段として具体的なclassやtraitを使わず、より抽象的な道具を用いて構造を表現するプログラミング手法です。
 
-また、ジェネリックプログラミングは、JavaやScalaにおけるジェネリクスとは関係ないため注意が必要です。
+また、ジェネリックプログラミングは、JavaやScalaにおけるジェネリクス / Parametarized Typesとは関係ないため注意が必要です。
 
 *** <<genericquote>>ジェネリックプログラミング(shapeless)が必要になる例
 
@@ -78,7 +78,7 @@ ADTsを表現するためにScalaに最初から備わっている機能とし�
 
 この節では、shapelessの理解をより深めるために、Scalaで型を組み合わせるために用意されているいくつかの方法について復習します。
 
-*タプル* は、複数の型を組み合わせて1つの型にします。タプル自体は最も単純な型コンストラクタ[fn::値を持ちうる通常の意味での型ではなく、型を代入することで型を生成する、関数のような型のことを型コンストラクタと呼びます。]の一つであり、それ自体多くの機能を持ちませんが、複数の型を一つにし、それをまた分解できるという最も基本的な機能を提供します。
+*タプル* は、複数の型を組み合わせて1つの型にします。タプル自体は最も単純な型構築子[fn::値を持ちうる通常の意味での型ではなく、型を代入することで型を生成する、関数のような型のことを型構築子(型コンストラクタ)と呼びます。]の一つであり、それ自体多くの機能を持ちませんが、複数の型を一つにし、それをまた分解できるという最も基本的な機能を提供します。
 
 #+begin_example scala
 type StringIntTuple = Tuple2[String, Int]
@@ -138,14 +138,162 @@ case object None extends Option[Nothing]
 
 ** HList, HNil
 
-Shapelessでは、直積を表現するためのデータ型として =HList= を用意しています。 =HList= は、前項で登場したタプルと似た振舞いをします。つまり、複数の型を1つにし、その値が両方の型の値を持つことを保証します。
+Shapelessで直積を表現するには、 *=HList=* データ型を使います。 =HList= は、[[scala-adts][前項]]で登場したタプルと似た振舞いをします。つまり、複数の型を1つにし、その値が両方の型の値を持つことを保証します。
+
+<<<=HList= を構築>>>するには、 =::= を型の間に置き、最後に *=HNil=* を置きます。
+=::= は、型構築子としても、値構築子としても使うことができます。
 
 #+begin_example scala
 import shapeless.{::, HNil}
-type IntStringHList = Int :: String:: HNil
+type IntStringHList = Int :: String :: HNil // (Int, String) にほぼ対応する
 val hlis: IntStringHList = 42 :: "foo" :: HNil
 // hlis: shapeless.::[Int, shapeless.::[String, HNil]] = 42 :: "foo" :: HNil
 #+end_example
+
+形が分かっている =HList= からは型安全に値を取り出すことができます:
+
+#+begin_example scala
+def stringifyIntString(is: IntStringHList): String = {
+  val i = is.head      // type safe -- 常にInt
+  val s = is.tail.head // type safe -- 常にString
+  ...
+}
+#+end_example
+
+=match= 式で内容を取り出すこともできます:
+
+#+begin_example scala
+hlis match {
+  case (i: Int) :: (s: String) :: HNil => s"int: $i, string: $s"
+} // => "int: 42, string: foo"
+#+end_example
+
+*** 型の中置記法
+
+冒頭で示したコードのうち、返り値の型に注目してください。
+
+#+begin_example scala
+val hlis: IntStringHList = 42 :: "foo" :: HNil
+// hlis: shapeless.::[Int, shapeless.::[String, HNil]] = 42 :: "foo" :: HNil
+#+end_example
+
+=shapeless.::[Int, shapeless.::[String, HNil]]= がリストのような形式になっているのが分かるはずです。
+Scalaには2-arityの型を中置する記法がある[fn::https://stackoverflow.com/questions/33347955/real-life-examples-of-scala-infix-types に型中置の事例が紹介されています。]ため、これを =Int :: String :: HNil= と書けるのです。
+
+#+BEGIN_SRC dot :file hlist.png :exports results :cache yes
+  digraph {
+    is[label="::"];
+    i[label="Int"];
+    sh[label="::"];
+    s[label="String"];
+    h[label="HNil"];
+    is -> i[label="head"];
+    is -> sh[label="tail"];
+    sh -> s[label="head"];
+    sh -> h[label="tail"];
+  }
+#+END_SRC
+
+#+RESULTS[1259b5d991ffb75a6fd23671e1565095c737c2bd]:
+[[file:hlist.png]]
+
+** Coproduct
+
+Shapelessで直和を表現するには、 *=Coproduct=* データ型を使います。 =Coproduct= は、[[scala-adts][前項]]で登場した =Either= と似た振舞いをします。つまり、複数の型を1つにし、その値がどちらかの型の値を持つことを保証します。
+
+<<<=Coproduct= を構築>>>するには、 =:+:= を型の間に置き、最後に =CNil= を置きます。
+
+#+begin_example scala
+import shapeless.{:+:, CNil}
+type IntOrString = Int :+: String :+: CNil // Either[Int, String]にほぼ対応する
+#+end_example
+
+=Coproduct= は =Either= と異なり、リスト状の構造になっています:
+
+#+BEGIN_SRC dot :file coproduct.png :exports results :cache yes
+  digraph {
+    is[label=":+:"];
+    i[label="Int"];
+    sc[label=":+:"];
+    s[label="String"];
+    c[label="CNil"];
+    is -> i[label="Inl"];
+    is -> sc[label="Inr"];
+    sc -> s[label="Inl"];
+    sc -> c[label="Inr"];
+  }
+#+END_SRC
+
+#+RESULTS[5571865644b10ef1dab58257925d01a69f6141c8]:
+[[file:coproduct.png]]
+
+このため、 _=Coproduct= は3つ以上の型を自然に組み合わせることができます。_
+
+*** Inl / Inr
+
+=Coproduct= の値構築子は =Inl= と =Inr= です[fn::Inは *Injection* の略で、圏論の用語に由来しています。型A, Bのそれぞれから余積A+Bに写すような射のことをCanonical injection(標準入射)と呼びます。 https://ja.wikipedia.org/wiki/%E4%BD%99%E7%A9%8D 。個人的には非常に難解な名付けで、良くないと思っています。]。これは =Either= における =Left= と =Right= に対応します。
+
+#+begin_example scala
+import shapeless.{Inl, Inr}
+val i: IntOrString = Inl(42) // Left(42) に対応する
+val s: IntOrString = Inr(Inl("foo")) // Right("foo")に対応する
+#+end_example
+
+=Inl= と =Inr= の唯一の役割は、元々のプリミティブな値を =Coproduct= の型の文脈に押し上げることです。言い換えると、型レベルの標識を行い、単なる =Int= なのか、それとも =Int :+: String :+: CNil= 上の =Int= なのかを区別させるためだけに存在しています。
+
+さっきのは /MT免許/ です。 /AT免許/ として =Inject= が用意されています。 =Inl= や =Inr= を省略できます:
+
+#+begin_example scala
+import shapeless.syntax.inject._
+val s2: IntOrString = "foo".inject[IntOrString] // => Inr(Inl("foo"))
+// これは以下の表現と等価
+import shapeless.ops.coproduct.Inject
+val s3: IntOrString = Inject[IntOrString, String].apply("foo")
+#+end_example
+
+先程も述べた通り、 =Coproduct= が =Either= よりも優れている点として、 _3つ以上の型を自然に組み合わせられる_ というものがあります。
+
+#+begin_example scala
+case class ErrorA(msg: String)
+case class ErrorB(msg: String)
+case class ErrorC(msg: String)
+case class ErrorD(msg: String)
+type Errors = ErrorA :+: ErrorB :+: ErrorC :+: ErrorD :+: CNil
+
+val ec: Errors = ErrorC("injecting").inject[Errors] // => Inr(Inr(Inl(ErrorC(...))))
+#+end_example
+
+=Either= でも似たような事はできますが、結合順序の定義が悪いため =Coproduct= ほど洗練された定義を与えられません。
+
+*** Inl / Inr 補足
+
+これは補足なのでスキップしてかまいません。
+
+=Coproduct= が右向きのリスト状に構成されている都合上、 =Inl= は常に値を保持する役回りであり、 =Inl= は型を1つずらす操作に対応します。このため、 =Coproduct= の値表現は常に =Inr(...(Inl(値)))= という表現になります。この感覚には少し慣れが必要です。というのも、 =HList= の場合は順番が重要であることは直感的に理解できる一方で、 =Coproduct= で順番を気にしなければならないことは直感的ではないからです(実際、 =sealed trait= では順番を気にする必要がありません)。
+
+=HList= の値を構築したときは複数の束ねたい型と唯一の値構築子 =::= を用いましたが、 =Coproduct= の場合は渡す型は一つだけであり、 =Coproduct= のどの型にあてはまるかを指示するために =Inl= と =Inr= という型構築子を使い分けます[fn::この面白い対称関係は、直積と余積が圏論的双対になっていることに由来するものだと思いますが、専門家ではないのでわかりません。]。
+
+リボルバー銃の弾倉を回す操作と、引き金を引く操作になぞらえると分かりやすいかもしれません。必要な数だけ弾倉を回し、引き金を引くことで望みの型が飛び出すのです。
+
+
+** Record
+
+前項では、 =HList= を構築する方法と =Coproduct= を構築する方法について学びました。ここでは =HList= にフィールド名の概念を追加した Record について学びます。
+
+Recordはちょうど型安全でポリモーフィックな =Map= のように振舞い、フィールド名を用いて型安全に値を取り出すことができます。Rubyといった言語の連想配列が、さらに型安全になった様子をイメージすると分かりやすいと思います。
+
+*** Recordを作る
+
+=HList= を構築する方法と =->>= とを組み合わせることで、<<<=Record= を構築する>>>ことができます。
+
+#+begin_example
+import shapeless.syntax.singleton._ // ->>のために必要
+val hashFoo = ("foo" ->> "bar") :: ("hoge" ->> 42) :: HNil // フィールド"foo"と"bar"を持つRecordを作成
+#+end_example
+
+** 任意のADTsに対して操作を定義する
+
+*** Generic
 
 * 参考文献
 

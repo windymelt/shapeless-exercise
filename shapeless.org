@@ -6,10 +6,12 @@
 
 #+html_head: <style> p { line-height:1.2; } pre, code { font-family: Berkeley Mono; } </style>
 #+html_head: <style>table {margin-left:auto; margin-right:auto;}</style>
+#+html_head: <style>.right { margin-top: 5em; margin-botton: 5em; text-align:end;}</style>
 
 #+begin_center
 #+begin_export html
 <a href="https://b.hatena.ne.jp/entry/" class="hatena-bookmark-button" data-hatena-bookmark-layout="vertical-normal" data-hatena-bookmark-lang="en" title="このエントリーをはてなブックマークに追加"><img src="https://b.st-hatena.com/images/v4/public/entry-button/button-only@2x.png" alt="このエントリーをはてなブックマークに追加" width="20" height="20" style="border: none;" /></a><script type="text/javascript" src="https://b.st-hatena.com/js/bookmark_button.js" charset="utf-8" async="async"></script>
+<a href="https://www.buymeacoffee.com/windymelt"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=windymelt&button_colour=FF5F5F&font_colour=ffffff&font_family=Lato&outline_colour=000000&coffee_colour=FFDD00" /></a>
 #+end_export
 #+end_center
 
@@ -20,6 +22,14 @@
       href="./highlight/styles/mono-blue.min.css">
 <script src="./highlight/highlight.min.js"></script>
 #+end_export
+
+#+begin_right
+#+begin_quote
+/贅沢な名だね。 ----- 湯婆婆, 『千と千尋の神隠し』/
+#+end_quote
+#+end_right
+
+[[./logo.jpeg]]
 
 ** はじめに
 
@@ -141,7 +151,7 @@ case object None extends Option[Nothing]
 - クラスや =sealed trait= を用いたADTsは、型が具体的すぎるため柔軟性が低い。
 - =Either= は2要素にしか対応しておらず、2要素を越えるADTsを表現するためには複数の =Either= を組み合わせる必要があるが、その運用は複雑を極める。
 
-** HList, HNil
+** HList
 
 Shapelessで直積を表現するには、 *=HList=* データ型を使います。 =HList= は、[[scala-adts][前項]]で登場したタプルと似た振舞いをします。つまり、複数の型を1つにし、その値が両方の型の値を持つことを保証します。
 
@@ -239,16 +249,42 @@ type RGBA = Int :: Int :: Int :: Int :: HNil
 val red: RGBA = 255 :: 0 :: 0 :: 255 :: HNil
 val green: RGBA = 0 :: 255 :: 0 :: 255 :: HNil
 
-def brendAverage(x: RGBA, y: RGBA): RGBA = {
-  val r = (x.at(0) + y.at(0)) / 2
-  val g = (x.at(1) + y.at(1)) / 2
-  val b = (x.at(2) + y.at(2)) / 2
-  val a = (x.at(3) + y.at(3)) / 2
-  return r :: g :: b :: a :: HNil
+def brendAverage(xs: Int :: HList, ys: Int :: HList): Int :: HList = (xs, ys) match {
+  case (x :: (x2: Int) :: HNil, y :: (y2: Int) :: HNil) => (x + y) / 2 :: (x2 + y2) / 2 :: HNil
+  case (x :: (x2: Int) :: xs, y :: (y2: Int) :: ys) => (x + y) / 2 :: brendAverage(x2 :: xs, y2 :: ys)
+  case otherwise => ???
 }
 
 brendAverage(red, green) // => 127 :: 127 :: 0 :: 255 :: HNil
 #+end_example
+
+*** <<hlistops>>HListから特定のフィールドを抽出する(shapeless.ops.hlist)
+
+<<hlistopsselector>> =shapeless.ops.hlist.Selector= を使うと、 =HList= から特定のフィールドを抜き出すことができます。この機能は、メソッドからは具体的な =HList= の形が分からないが特定の型を含んでいることを要求したい場合に便利です。
+
+メソッドの =implicit= 引数として =Selector= を要求することで、特定のフィールドを抜き出せるようになります。該当する =Selector= はコンパイル時に自動的に渡されます。
+
+#+begin_example scala
+def getInt[H <: HList](h: H)(implicit sel: shapeless.ops.hlist.Selector[H, Int]) = {
+  // この中からは、Hの具体的な型がわからないことに注目。
+  // 型がわからなくても、SelectorがあることによってInt型が含まれていることが保証される
+  s"$h has int member ${sel(h)}"
+}
+
+getInt("foo" :: 42 :: HNil) // => "foo :: 42 :: HNil has int member 42"
+getInt("foo" :: false :: HNil) // => コンパイラはSelectorを発見できないのでコンパイルエラーになる
+#+end_example
+
+この例ではフィールドの抽出でしたが、 _一般に具体的な形が分からない =HList= を操作するようなメソッドを定義するときは、 =implicit= で *=ops=* を受け取り、呼び出せるかどうかをコンパイラに委ねるというパターンになります。_
+
+=shapeless.ops.hlist= には、他にも以下のような =ops= が用意されています:
+
+- =Align= : =HList= を指定した順序に並び換える
+  - =Generic= (後述)と組み合わせるときなどの型合わせに使う
+- =Diff= : =HList= から特定の型集合を削除する
+  - 余分な型を捨てたいときに使う
+- =Prepend= : =HList= に別の =HList= を追加する
+  - なにか =HList= を付け加えて返したいときなどに便利
 
 ** Coproduct
 
@@ -280,7 +316,7 @@ type IntOrString = Int :+: String :+: CNil // Either[Int, String]にほぼ対応
 #+RESULTS[5571865644b10ef1dab58257925d01a69f6141c8]:
 [[file:coproduct.png]]
 
-このため、 _=Coproduct= は3つ以上の型を自然に組み合わせることができます。_
+このため、 _=Coproduct= は3つ以上の型を自然に組み合わせることができます。_ =HList= に似ていますね。
 
 *** Inl / Inr
 
@@ -347,22 +383,204 @@ Recordはちょうど =HList= 以上 =case class= 未満の表現力を持ちま
 Recordはそれ自体に名前を持ちませんが、各フィールドには名前を持つことができ、
 その名前でフィールドにアクセスできます。
 
-*** Recordを作る
+*** =->>= を使ってRecordを構築する
 
 =HList= を構築する方法と =->>= とを組み合わせることで、<<<=Record= を構築する>>>ことができます。
 
 #+begin_example
 import shapeless.syntax.singleton._ // ->>のために必要
-val hashFoo = ("foo" ->> "bar") :: ("hoge" ->> 42) :: HNil // フィールド"foo"と"bar"を持つRecordを作成
+val rec1 = ("foo" ->> "bar") :: ("hoge" ->> 42) :: HNil // フィールド"foo"と"bar"を持つRecordを作成
 #+end_example
 
 Recordの型は、 =FieldType[K, V]=
 [fn::https://github.com/milessabin/shapeless/blob/417d34b7f30b8be89a80fca7802c159aedac85f5/core/shared/src/main/scala/shapeless/labelled.scala#L25]を集めた =HList= になります。
-上の例では、 =hashFoo= の型は =FieldType[String, String] :: FieldType[String, Int] :: HNil= です。
+上の例では、 =rec1= の型は =FieldType["foo", String] :: FieldType["hoge", Int] :: HNil= です。
+
+=Record= には =apply= が定義されているので、よくある =Map= と同じようにアクセスできます:
+
+#+begin_example scala
+rec1("foo") // => "bar"
+#+end_example
+
+=+= や =-= といったメソッドが用意されており、フィールドを自由に追加・削除できます:
+
+#+begin_example scala
+rec1 + ("buzz" ->> true) // => ("foo" ->> "bar") :: ("hoge" ->> 42) :: ("buzz" ->> true) :: HNil
+rec1 - "foo" // => ("hoge" ->> 42) :: HNil
+#+end_example
+
+*** Record構文を使ってRecordを構築する
+
+=shapeless.record= に、 =Record= を構築するための構文が定義されています。
+
+#+begin_example scala
+import shapeless.record._
+val rec2 = Record(foo = 42, bar = "hoge")
+#+end_example
+
+ただしこの構文は =Symbol= に依存しているため、キーの型は =String= ではなく =Symbol= になります。
+
+#+begin_example scala
+rec2(Symbol("foo")) // => 42
+#+end_example
+
+*** Recordの型構築構文
+
+=->>= を駆使する代わりに、 =Record.`キー -> 型, ...`.T= と書くことで、 =Record= 型を構築することができます。
+
+#+begin_example scala
+type Rec1 = Record.`"foo" -> String, "hoge" -> Int`.T
+#+end_example
+
+*** <<recordops>>Recordから特定のフィールドを抽出する(shapeless.ops.record)
+
+[[hlistops]]で説明したのと同様に、 =Record= に対する操作を定めた =shapeless.ops.record= を使うことで =Record= 全体の型が分からなくてもフィールドの追加や削除などを行うことができます。
+
+メソッドの =implicit= 引数として =Extractor= を要求することで、特定のフィールドを抜き出せるようになります。該当する =Extractor= はコンパイル時に自動的に渡されます。
+
+#+begin_example scala
+import shapeless.ops.record.Extractor
+def getAge[H <: HList](rec: H)(
+    implicit ex: Extractor[H, Record.`'age -> Int, 'name -> String`.T]
+  ) = {
+  val extracted = ex(rec)
+  val name = extracted(Symbol("name"))
+  val age = extracted(Symbol("age"))
+  s"$name is $age year(s) old"
+}
+
+val me = Record(name = "Windymelt", age = 29, gender = "male")
+val usa = Record(name = "USA", capital = "Washington D.C.", age = 246)
+
+getAge(me) // => "Windymelt is 29 year(s) old"
+getAge(usa) // "USA is 246 year(s) old"
+#+end_example
+
+面白いことに、 =me= と =usa= の型はそれぞれバラバラですが、 =getAge= はこの違いを乗り越えて =name= フィールドと =age= フィールドのみを取り出し、名前と年齢を表示できていますね。
 
 ** 任意のADTsに対して操作を定義する
 
+この節では、任意のADTsと =HList= ・ =Coproduct= とを相互変換する *=Generic=* と、それの =Record= 版である *=LabelledGeneric=* について解説します。
+
+今まで説明した内容では、現実の =case class= と =HList= との相互作用については扱ってきませんでした。これから説明する =Generic= / =LabelledGeneric= はこの二者のインターフェイスとして作用し、ビジネスロジックを記述する一般のScalaの世界と、抽象化の力を得たshapelessの世界とを行き来できるようにします。
+
 *** Generic
+
+=shapeless.Generic= を使うことで、 =case class= や =Tuple= と =HList= とを相互変換できます:
+
+#+begin_example scala
+case class Person(name: String, age: Int, gender: String)
+val me1 = Person("Windymelt", 29, "male")
+
+shapeless.Generic[Person].to(me1) // => "Windymelt" :: 29 :: "male" :: HNil
+shapeless.Generic[Person].from("Windymelt" :: 29 :: "male" :: HNil) // => Person("Windymelt", 29, "male")
+#+end_example
+
+#+BEGIN_SRC dot :file generic.png :exports results :cache yes
+  digraph {
+  case[label="case class Person(name: String, age: Int, gender: String)"];
+  hlist[label="String :: Int :: String :: HNil"];
+  case -> hlist [label="Generic[Person].to"];
+  hlist -> case [label="Generic[Person].from"];
+  }
+#+END_SRC
+
+#+RESULTS[b03de6bb249ccdff15eca4d12d020eba0bd0569c]:
+[[file:generic.png]]
+
+=to= と =from= がどちらの向きかを覚えるには少し慣れが必要です。
+
+**** <<genericex>>例: 任意のcase classからIdを取り出す
+
+=Id= という型をフィールドとして持っている任意の =case class= から =Id= を取り出してみましょう。必要な道具は、 =Generic= と [[hlistopsselector][=Selector=]] です。
+
+#+begin_example scala
+case class Id(x: Long)
+case class Car(id: Id, mass: Int, cost: Int)
+case class Tweet(id: Id, user: String, content: String)
+
+def selectId[A, H <: HList](x: A)(
+    implicit gen: shapeless.Generic.Aux[A, H],
+    sel: shapeless.ops.hlist.Selector[H, Id]
+  ): Id = {
+  val hlist = gen.to(x)
+  sel(hlist)
+}
+
+selectId(Car(Id(123), 1000, 3000000)) // => Id(123)
+selectId(Tweet(Id(666), "@windymelt", "#welovescala")) // => Id(666)
+#+end_example
+
+互いに全く関係の無い =Car= と =Tweet= から =Id= を取り出せました。shapelessの強力さがお分かりいただけましたか？
+
+=shapeless.Generic.Aux= という型が使われていることに注目してください。以下の理由から、 =Generic= の代わりに =Generic.Aux= を使う必要があります:
+
+- =Selector= は取り出したい型を含んだ =HList= を型引数として要求する
+- =Generic= は変換を担当するが、その変換結果どのような =HList= になるかは直接は得られない
+- =Generic.Aux= は変換結果を型引数として露出させてくれるので、 =Generic.Aux[A, H]= と =Selector[H, Id]= というふうに書ける
+  - これにより、二者の関係が明確になり、正常に連携できるようになる
+  - 「 =A= を =H= に変換し、 =H= から =Id= を取り出す」と読めるようになる
+
+=Generic.Aux= を使わない場合、変換結果の型が分からないので =Selector= に手で =HList= の型を教えてやることになってしまい、せっかく得た柔軟性が壊れてしまいます。
+_=ops= と連携させるときは =Generic.Aux= を使う、と覚えておくとよいでしょう。_
+
+*** LabelledGeneric
+
+=HList= を変換する =Generic= があるように、 =Record= に対応する =LabelledGeneric= も存在します。
+
+#+BEGIN_SRC dot :file labelledgeneric.png :exports results :cache yes
+  digraph {
+  h[label="HList"];
+  r[label="Record"];
+  g[label="Generic" shape=rectangle];
+  lg[label="LabelledGeneric" shape=rectangle];
+  h -> r [label="ラベルを追加"];
+  h -> g [label="他ADTsとの相互変換"];
+  r -> lg [label="他ADTsとの相互変換"];
+  g -> lg [label="ラベルを追加"];
+  }
+#+END_SRC
+
+#+RESULTS[8a8ee79c258785450ae9b1335946216e33e0c880]:
+[[file:labelledgeneric.png]]
+
+使い方は[[Generic][Generic]]とほぼ同じです:
+
+#+begin_example scala
+shapeless.LabelledGeneric[Person].to(me1)
+// => ('name->> "Windymelt") :: ('age ->> 29) :: ('gender ->> "male") :: HNil
+#+end_example
+
+**** 例: 任意のcase classからnameフィールドを取り出す
+
+[[genericex]]でやったように、今回は =LabelledGeneric= を使って =case class= から特定の名前を持つフィールドを取り出してみましょう。
+
+#+begin_example scala
+case class Person(name: String, age: Int, gender: String)
+val zundamon = Person("Zundamon", 1, "???")
+
+case class Cat(name: String, age: Int)
+val tama = Cat("Tama", 3)
+
+greeting(zundamon) // => "Hi, Zundamon !"
+greeting(tama) // => "Hi,Tama !"
+#+end_example
+
+クラスの構造を乗り越えて、 =name= というフィールドがありさえすれば何でも受け付けられるメソッド =greeting= を定義することができました。
+非常に強力だとは思いませんか？
+
+他にも、 =LabelledGeneric= を使った色々なアイデアが思い浮かびます:
+
+- 任意の =case class= をJSONに変換する
+- 同じ名前のフィールドを持つ =case class= 同士を変換し、足りないフィールドをデフォルト値で補う
+
+これは読者への宿題とします。
+
+* Further Reading
+
+- [[https://github.com/milessabin/shapeless/blob/main/core/shared/src/main/scala/shapeless/lenses.scala]] には、[[https://www.optics.dev/Monocle/][Monocle]]にも登場する =Lens= との組み合わせが実装されています。
+- https://github.com/milessabin/shapeless/blob/main/core/shared/src/main/scala/shapeless/poly.scala には、多態な関数 =Poly= の実装と、その =HList= との組み合わせが実装されています。
+- JSONライブラリ [[https://circe.github.io/circe/][=Circe=]] が提供する =circe.shapes= モジュールは、JSONと =HList= との相互変換をサポートします。
 
 * 参考文献
 

@@ -50,9 +50,10 @@ def brendAverage0(x: RGBA, y: RGBA): RGBA = {
   val a = (x.at(3) + y.at(3)) / 2
   return r :: g :: b :: a :: HNil
 }
-def brendAverage(xs: Int :: Int :: HList, ys: Int :: Int :: HList): Int :: HList = (xs, ys) match {
-  case (x :: x2 :: HNil, y :: y2 :: HNil) => (x + y) / 2 :: (x2 + y2) / 2 :: HNil
-  case (x :: x2 :: xs, y :: y2 :: ys) => (x + y) / 2 :: brendAverage(x2 :: xs, y2 :: ys) // TODO
+def brendAverage(xs: Int :: HList, ys: Int :: HList): Int :: HList = (xs, ys) match {
+  case (x :: (x2: Int) :: HNil, y :: (y2: Int) :: HNil) => (x + y) / 2 :: (x2 + y2) / 2 :: HNil
+  case (x :: (x2: Int) :: xs, y :: (y2: Int) :: ys) => (x + y) / 2 :: brendAverage(x2 :: xs, y2 :: ys)
+  case otherwise => ???
 }
 
 brendAverage(red, green)
@@ -111,18 +112,107 @@ hashFoo - "foo"
 // 特定のフィールドを持つRecordのみ受け付けるようなメソッド
 import shapeless.HList
 import shapeless.labelled.FieldType
-import shapeless.ops.record.{Selector, Updater}
-//フィールドを持っていることは、特定の操作が可能であることとして読み替える
-// HListはH <: HListの形で受け取る
-def zeroHoge[H <: HList](r: H)(implicit updater: Updater[H, FieldType["hoge", Int]]): updater.Out = {
-  val newHoge: FieldType["hoge", Int] = shapeless.labelled.field(0)
-  updater(r, newHoge)
-}
+// import shapeless.ops.record.{Selector, Updater}
+// //フィールドを持っていることは、特定の操作が可能であることとして読み替える
+// // HListはH <: HListの形で受け取る
+// def zeroHoge[H <: HList](r: H)(implicit updater: Updater[H, FieldType["hoge", Int]]): updater.Out = {
+//   val newHoge: FieldType["hoge", Int] = shapeless.labelled.field(0)
+//   updater(r, newHoge)
+// }
 
-println(zeroHoge(hashFoo))
+// println(zeroHoge(hashFoo))
 
 // いくつかのフィールドがあればよいような場合
 import shapeless.ops.record.Extractor
 // val rgba = ("r" ->> 255) :: ("g" ->> 128) :: ("b" ->> 64) :: ("a" ->> 255) :: HNil
 // type RGB = 
 //def fadeToBlack[H <: HList](rgb: H)(implicit extractor: Extractor[H, RGB]): H = ???
+
+val rec = Record(foo = 42, bar = "hoge")
+rec(Symbol("foo"))
+rec(Symbol("bar"))
+
+
+// howOld0(me) compile error
+
+def getInt[H <: HList](h: H)(implicit sel: shapeless.ops.hlist.Selector[H, Int]) = {
+  s"$h has int member ${sel(h)}"
+}
+
+getInt("foo" :: 42 :: HNil)
+
+
+import shapeless.ops.hlist.Align
+
+def reOrder[H <: HList](h: H)(implicit ali: Align[H, Int :: String:: HNil]) = {
+  ali(h)
+}
+
+reOrder("hoge" :: 42 :: HNil)
+
+import shapeless.ops.hlist.Diff
+def removeInt[H <: HList](h: H)(implicit diff: Diff[H, Int :: Boolean :: HNil]) = {
+  diff(h)
+}
+
+removeInt(42 :: "foo" :: true :: 666 :: HNil)
+
+import shapeless.ops.hlist.Prepend
+def prependInt[H <: HList](h: H)(implicit pre: Prepend[Int :: HNil, H]) = {
+  pre(42 :: HNil, h)
+}
+
+prependInt("foo" :: "bar" :: HNil)
+
+import shapeless.ops.record.Extractor
+def getAge[H <: HList](rec: H)(implicit ex: Extractor[H, Record.`'age -> Int, 'name -> String`.T]) = {
+  val extracted = ex(rec)
+  val name = extracted(Symbol("name"))
+  val age = extracted(Symbol("age"))
+  s"$name is $age year(s) old"
+}
+
+val me = Record(name = "Windymelt", age = 29, gender = "male")
+val usa = Record(name = "USA", capital = "Washington D.C.", age = 246)
+
+def howOld0(person: Record.`'age -> Int`.T): Int = {
+  person(Symbol("age"))
+}
+
+getAge(me)
+getAge(usa)
+
+case class Person(name: String, age: Int, gender: String)
+val me1 = Person("Windymelt", 29, "male")
+shapeless.Generic[Person].to(me1)
+shapeless.Generic[Person].from("Windymelt" :: 29 :: "male" :: HNil)
+
+case class Id(x: Long)
+case class Car(id: Id, mass: Int, cost: Int)
+case class Tweet(id: Id, user: String, content: String)
+
+def selectId[A, H <: HList](x: A)(implicit gen: shapeless.Generic.Aux[A, H], sel: shapeless.ops.hlist.Selector[H, Id]): Id = {
+  val hlist = gen.to(x)
+  sel(hlist)
+}
+
+selectId(Car(Id(123), 1000, 3000000))
+selectId(Tweet(Id(666), "@windymelt", "#welovescala"))
+
+shapeless.LabelledGeneric[Person].to(me1)(Symbol("name"))
+
+def greeting[A, H <: HList](x: A)(
+  implicit gen: shapeless.LabelledGeneric.Aux[A, H],
+  ext: shapeless.ops.record.Extractor[H, Record.`'name -> String`.T]
+): String = {
+  val extracted = ext(gen.to(x))
+  val name = extracted(Symbol("name"))
+  s"Hi, $name !"
+}
+
+val zundamon = Person("Zundamon", 1, "???")
+case class Cat(name: String, age: Int)
+val tama = Cat("Tama", 3)
+greeting(zundamon)
+greeting(tama)
+

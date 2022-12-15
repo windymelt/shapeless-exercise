@@ -221,13 +221,34 @@ val hlis2 = Hlis(42, "foo")
 =case class= で作った =hlis2= は、 =Hlis= という固有のクラス名・フィールド名を持っています。 =hlis= は =HList=
 である以外に何も情報を持ちません。いくつかの性質を表にまとめました:
 
+#+name: comparison1
 | 性質                         | case class | HList | Tuple |
 |------------------------------+------------+-------+-------|
 | いくつでもフィールドを持てる | true       | true  | false |
-| 型が固有名を持つ             | true       | false | false |
 | 型がフィールド名を持つ       | true       | false | false |
+| 型が固有名を持つ             | true       | false | false |
 
-=HList= は、 =case class= ほど強い表現力を持たない代わりに、強い柔軟性を持つことができています。
+=HList= は、 =case class= ほど強い表現力を持たない代わりに、動的にフィールドを追加したり、特定のフィールドを持つすべての
+=HList= を受け取るメソッドを定義したりといった強い柔軟性を持つことができています。
+
+*** 例: 色を混ぜる
+
+#+begin_example scala
+type RGBA = Int :: Int :: Int :: Int :: HNil
+
+val red: RGBA = 255 :: 0 :: 0 :: 255 :: HNil
+val green: RGBA = 0 :: 255 :: 0 :: 255 :: HNil
+
+def brendAverage(x: RGBA, y: RGBA): RGBA = {
+  val r = (x.at(0) + y.at(0)) / 2
+  val g = (x.at(1) + y.at(1)) / 2
+  val b = (x.at(2) + y.at(2)) / 2
+  val a = (x.at(3) + y.at(3)) / 2
+  return r :: g :: b :: a :: HNil
+}
+
+brendAverage(red, green) // => 127 :: 127 :: 0 :: 255 :: HNil
+#+end_example
 
 ** Coproduct
 
@@ -312,6 +333,19 @@ val ec: Errors = ErrorC("injecting").inject[Errors] // => Inr(Inr(Inl(ErrorC(...
 前項では、 =HList= を構築する方法と =Coproduct= を構築する方法について学びました。ここでは =HList= にフィールド名の概念を追加した Record について学びます。
 
 Recordはちょうど型安全でポリモーフィックな =Map= のように振舞い、フィールド名を用いて型安全に値を取り出すことができます。Rubyといった言語の連想配列が、さらに型安全になった様子をイメージすると分かりやすいと思います。
+
+Recordはちょうど =HList= 以上 =case class= 未満の表現力を持ちます。
+[[comparison1][前掲の表]]にRecordを増やしてみることでこれを確認してみましょう:
+
+#+name: comparison2
+| 性質                         | case class | Record | HList | Tuple |
+|------------------------------+------------+--------+-------+-------|
+| いくつでもフィールドを持てる | true       | true   | true  | false |
+| 型がフィールド名を持つ       | true       | true   | false | false |
+| 型が固有名を持つ             | true       | false  | false | false |
+
+Recordはそれ自体に名前を持ちませんが、各フィールドには名前を持つことができ、
+その名前でフィールドにアクセスできます。
 
 *** Recordを作る
 

@@ -37,6 +37,26 @@ def unknownHList(hl: HList): Int = {
 }
 unknownHList(hlis)
 
+// HList example
+
+type RGBA = Int :: Int :: Int :: Int :: HNil
+val red: RGBA = 255 :: 0 :: 0 :: 255 :: HNil
+val green: RGBA = 0 :: 255 :: 0 :: 255 :: HNil
+
+def brendAverage0(x: RGBA, y: RGBA): RGBA = {
+  val r = (x.at(0) + y.at(0)) / 2
+  val g = (x.at(1) + y.at(1)) / 2
+  val b = (x.at(2) + y.at(2)) / 2
+  val a = (x.at(3) + y.at(3)) / 2
+  return r :: g :: b :: a :: HNil
+}
+def brendAverage(xs: Int :: Int :: HList, ys: Int :: Int :: HList): Int :: HList = (xs, ys) match {
+  case (x :: x2 :: HNil, y :: y2 :: HNil) => (x + y) / 2 :: (x2 + y2) / 2 :: HNil
+  case (x :: x2 :: xs, y :: y2 :: ys) => (x + y) / 2 :: brendAverage(x2 :: xs, y2 :: ys) // TODO
+}
+
+brendAverage(red, green)
+
 // 基礎概念: Coproduct: 「どちらかの型」を表現する型
 // EitherをList風に扱いやすくしたものと考える
 import shapeless.{:+:, CNil, Inl, Inr}

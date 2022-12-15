@@ -562,6 +562,15 @@ val zundamon = Person("Zundamon", 1, "???")
 case class Cat(name: String, age: Int)
 val tama = Cat("Tama", 3)
 
+def greeting[A, H <: HList](x: A)(
+  implicit gen: shapeless.LabelledGeneric.Aux[A, H],
+  ext: shapeless.ops.record.Extractor[H, Record.`'name -> String`.T]
+): String = {
+  val extracted = ext(gen.to(x))
+  val name = extracted(Symbol("name"))
+  s"Hi, $name !"
+}
+
 greeting(zundamon) // => "Hi, Zundamon !"
 greeting(tama) // => "Hi,Tama !"
 #+end_example

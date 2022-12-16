@@ -578,12 +578,101 @@ greeting(tama) // => "Hi,Tama !"
 クラスの構造を乗り越えて、 =name= というフィールドがありさえすれば何でも受け付けられるメソッド =greeting= を定義することができました。
 非常に強力だとは思いませんか？
 
+**** =@implicitNotFound= の活用
+
+また、Scala標準の =@implicitNotFound= アノテーションを使うことで、ユーザーフレンドリーなDXを提供できます:
+
+#+begin_example scala
+import scala.annotation.implicitNotFound
+
+def greeting[A, H <: HList](x: A)(
+  implicit
+  @implicitNotFound("HListに変換できません")
+  gen: shapeless.LabelledGeneric.Aux[A, H],
+  @implicitNotFound("name: Stringを持つオブジェクトである必要があります")
+  ext: shapeless.ops.record.Extractor[H, Record.`'name -> String`.T]
+): String = {
+  val extracted = ext(gen.to(x))
+  val name = extracted(Symbol("name"))
+  s"Hi, $name !"
+}
+
+greeting(42) // コンパイルエラー: HListに変換できません
+#+end_example
+
 他にも、 =LabelledGeneric= を使った色々なアイデアが思い浮かびます:
 
 - 任意の =case class= をJSONに変換する
 - 同じ名前のフィールドを持つ =case class= 同士を変換し、足りないフィールドをデフォルト値で補う
 
 これは読者への宿題とします。
+
+** Poly
+
+ここでは、関数をポリモーフィックに拡張した、つまり引数として様々な型を取ることをサポートした関数(多相関数)である =Poly= の使い方について説明します。
+
+一般的な関数は特定の型を引数に取りますが、多相関数は複数の引数型に対して処理を定義できます。
+
+*** 型パラメータとの違い
+
+型パラメータ(ジェネリクス)では型を全称量化する、つまり「なんでもよい型」について扱っており、具体的な型のことを知りませんでした。多相関数は、引数としてやってくる型について知っており、なおかつそれが複数であるような関数です。
+
+- 共通点: 異なる型を受け取る
+- 型パラメータ: 型を抽象化して変数的に扱う
+- 多相関数: 具体的な型はそのまま、型に応じた異なる処理を行う
+
+#+BEGIN_SRC dot :file poly.png :exports results :cache yes
+  digraph {
+  rankdir = LR
+  i1 [label=Int]
+  s1 [label=String]
+  gen [label=型パラメータ]
+  proc1 [label=型をAとみなした処理]
+  res1 [label=結果]
+  i1 -> gen
+  s1 -> gen
+  gen -> proc1 [label=A]
+  proc1 -> res1
+
+  i2 [label=Int]
+  s2 [label=String]
+  poly [label=多相関数]
+  proci [label=Int用の処理]
+  procs [label=String用の処理]
+  res2 [label=結果]
+  i2 -> poly
+  s2 -> poly
+  poly -> proci [label="at[Int]"]
+  poly -> procs [label="at[String]"]
+  proci -> res2
+  procs -> res2
+  }
+#+END_SRC
+
+#+RESULTS[3d51c363683fd5f729c232997451ed2fe5acb553]:
+[[file:poly.png]]
+
+*** PolyをHListに適用する
+
+これまでは =HList= を直積、つまりADTsを構成するための道具として解説してきましたが、 =head= や =tail= といった操作をサポートしていることからも分かるとおり、 =HList= は通常の =List= のようにも振舞います。
+
+=HList= を =List= とみなすと、以下のような疑問が浮かびます:
+
+- =List= に対して定義されている =foldLeft= や =map= などの高階操作を =HList= にも適用できるか？
+
+=HList= は一種の =List= なので、各要素に関数を適用すれば =foldLeft= や =map= を実装できそうです。しかし以下のような問題にぶつかります。
+
+- 本質的に =HList= は複数の型をくっつけたものなので、高階関数に与える関数の型を決定できない
+- 関数の引数を =Any= にすれば解決するが、型安全性が損なわれてしまう
+
+コード例でこのことを確認してみましょう:
+
+#+begin_example scala
+def processHList[H <: HList](hs: H) = {
+  val f = ??? // fの引数の型をどう定義したらよい？
+  hs.map(f)
+}
+#+end_example
 
 * Further Reading
 

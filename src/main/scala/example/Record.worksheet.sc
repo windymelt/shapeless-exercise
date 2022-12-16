@@ -201,8 +201,12 @@ selectId(Tweet(Id(666), "@windymelt", "#welovescala"))
 
 shapeless.LabelledGeneric[Person].to(me1)(Symbol("name"))
 
+import scala.annotation.implicitNotFound
 def greeting[A, H <: HList](x: A)(
-  implicit gen: shapeless.LabelledGeneric.Aux[A, H],
+  implicit
+  @implicitNotFound("HListに変換できません")
+  gen: shapeless.LabelledGeneric.Aux[A, H],
+  @implicitNotFound("name: Stringを持つオブジェクトである必要があります")
   ext: shapeless.ops.record.Extractor[H, Record.`'name -> String`.T]
 ): String = {
   val extracted = ext(gen.to(x))
@@ -215,4 +219,3 @@ case class Cat(name: String, age: Int)
 val tama = Cat("Tama", 3)
 greeting(zundamon)
 greeting(tama)
-

@@ -8,7 +8,7 @@ ThisBuild / organizationName := "example"
 lazy val root = (project in file("."))
   .settings(
     name := "shapeless-exercise",
-    libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.5",
+    libraryDependencies += "com.chuusai" %% "shapeless" % "2.4.0-M1",
     libraryDependencies += scalaTest % Test
   )
 

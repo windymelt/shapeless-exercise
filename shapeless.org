@@ -709,6 +709,275 @@ def processHList[H <: HList](hs: H) = {
 }
 #+end_example
 
+* =Ops= 紹介
+
+ここでは、shapelessが提供している各種の =ops= を紹介します。 =ops= を使うことで、 =HList= や
+=Coproduct= を型レベルで操作し、より柔軟な処理を表現できるようになります。
+
+** =Adjoin= -- 結合する
+
+=shapeless.ops.Adjoin= は、複数の =HList= または =Coproduct= を結合してくれます。
+
+#+begin_example scala
+import shapeless._
+import ops.adjoin._
+
+def join[H <: HList, I <: HList, O](h: H, i: I)(implicit adjoin: Adjoin.Aux[H :: I :: HNil, O]): O = {
+  adjoin(h :: i :: HNil)
+}
+val h = 10 :: "foo" :: true :: HNil
+val i = 20 :: "bar" :: false :: HNil
+
+val hi: Int :: String :: Boolean :: Int :: String :: Boolean :: HNil = join(h, i)
+// => 10 :: "foo" :: true :: 20 :: "bar" :: false :: HNil
+#+end_example
+
+型が不明な2つの =HList= または =Coproduct= を結合する場合に便利です。
+
+=Adjoin= を用いたルータの実装が[[https://github.com/milessabin/shapeless/blob/main/examples/src/main/scala/shapeless/examples/router.scala][Shapelessのリポジトリ]]に存在します。
+
+** =coproduct.*=
+
+ここでは、 =shapeless.ops.coproduct= オブジェクト以下に定義されているOpsを紹介します。
+
+*** =coproduct.Inject= -- 型を =Coproduct= 上に持ち上げる
+
+=shapeless.ops.coproduct.Inject= は、単純な型 =I= を =Coproduct= 上の型 =C= に写します。例えば、
+単純な型 =String= の値 ="foo"= を =Int :+: String :+: Boolean :+: CNil= 上の =Inr(Inl("foo"))= に写します。
+
+#+begin_example scala
+import shapeless._
+import ops.coproduct.Inject
+
+def inject[C <: Coproduct, I](i: I)(implicit inj: Inject[C, I]): C = {
+  inj(i)
+}
+
+type ISB = Int :+: String :+: Boolean :+: CNil
+
+val isb1: ISB = inject[ISB, String]("foo")
+// isb1: ISB = Inr(tail = Inl(head = "foo"))
+val isb2: ISB = inject[ISB, Boolean](false)
+// isb2: ISB = Inr(tail = Inr(tail = Inl(head = false)))
+#+end_example
+
+ここでは =inject[ISB, String]= などと型を明示していますが、
+省略するとうまく型推論が働かないようなので、省略できません。
+
+*** =coproduct.Selector= -- =Coproduct= から型を取り出す
+
+=shapeless.ops.coproduct.Selector= は、 =Coproduct= 型から特定の型を =Option= に包んで取り出します。
+=Coproduct= にその型が含まれていなかった場合は、 =None= を返します。
+
+#+begin_example scala
+import shapeless._
+import ops.coproduct.Selector
+
+def select[I, C <: Coproduct](c: C)(implicit sel: Selector[C, I]): Option[I] = {
+  sel(c)
+}
+
+type ISB = Int :+: String :+: Boolean :+: CNil
+val isb1: ISB = Inl(42)
+// isb1: ISB = Inl(head = 42)
+val isb2: ISB = Inr(Inr(Inl(false)))
+// isb2: ISB = Inr(tail = Inr(tail = Inl(head = false)))
+
+val i: Option[Int] = select[Int, ISB](isb1)
+// i: Option[Int] = Some(value = 42)
+val b: Option[Boolean] = select[Boolean, ISB](isb2)
+// b: Option[Boolean] = Some(value = false)
+#+end_example
+
+=Select= は、おおむね =Inject= と逆向きの働きをします。
+
+*** =coproduct.At= -- =Coproduct= にインデックスアクセスする
+
+=shapeless.ops.coproduct.At= は、 =Coproduct= 型の特定位置の型にアクセスします。例えば、ある
+=Coproduct= 型 =C= の値について、その2番目の型にアクセスするといった事が可能です。
+実際にその値が2番目の型であるようなときは =Some= を返し、そうではなかった場合は =None= を返します。
+
+#+begin_example scala
+import shapeless._
+import ops.coproduct.At
+
+type ISB = Int :+: String :+: Boolean :+: CNil
+val isb1: ISB = Inl(42) // Coproductのうち0番目の型を使っている
+// isb1: ISB = Inl(head = 42)
+val isb2: ISB = Inr(Inl("foo")) // Coproductのうち1番目の型を使っている
+// isb2: ISB = Inr(tail = Inl(head = "foo"))
+
+// 型レベルで表現された自然数。
+// shapelessは型レベルでHList / Coproductを扱うため、インデックスアクセスなどの自然数が必要になる局面では自然数を型レベルに持ち上げる必要がある
+val zero = nat._0
+// zero: _0 = shapeless._0@3c7fcf26
+val one = nat(1)
+// one: Succ[_0] = Succ()
+val two = nat(2)
+// two: Succ[Succ[_0]] = Succ()
+
+def at[C <: Coproduct, N <: Nat, O](c: C, idx: N)(implicit atInstance: At.Aux[C, N, O]): Option[O] = {
+  atInstance(c)
+}
+
+at(isb1, zero) // zeroを与えたときにのみvalueが得られる
+// res0: Option[Int] = Some(value = 42)
+at(isb1, one)
+// res1: Option[At.<refinement>.this.type.A] = None
+at(isb1, two)
+// res2: Option[At.<refinement>.this.type.A] = None
+
+at(isb2, zero)
+// res3: Option[Int] = None
+at(isb2, one) // oneを与えたときにのみvalueが得られる
+// res4: Option[At.<refinement>.this.type.A] = Some(value = "foo")
+at(isb2, two)
+// res5: Option[At.<refinement>.this.type.A] = None
+#+end_example
+
+=coproduct.Select= が実際の型を使って値を取り出していたのとは対照的に、 =coproduct.At=
+では直接インデックスを与えてアクセスします。
+
+*** =coproduct.IndexOf= -- 型レベルインデックスを得る
+
+=coproduct.At= では =Coproduct= 型からインデックスを使って要素型を得ていましたが、
+=coproduct.IndexOf= はちょうど逆の操作を行います。つまり、 =Coproduct= 型とその要素型を使って、
+要素型が =Coproduct= 型のどの位置にあるのかを得るのです。
+
+例えば、 =Int :+: String :+: Boolean :+: CNil= であるような型 =ISB= があるとき、 =IndexOf=
+を使うことで =String= が =ISB= のどの位置にあるのかを型レベルで得ることができます。
+
+#+begin_example scala
+import shapeless._
+import ops.coproduct.IndexOf
+
+// IndexOfはshapeless 2.4.0 以降でしか使えないことに注意
+type ISB = Int :+: String :+: Boolean :+: CNil
+
+def getIdx0[C <: Coproduct, A](implicit idx: IndexOf[C, A]): Nat = {
+  idx()
+}
+
+// 型レベルの自然数なので、Nat型につぶすと内容が見えなくなる
+val n1: Nat = getIdx0[ISB, Int]
+// n1: Nat = shapeless._0@1d12be22
+val n2: Nat = getIdx0[ISB, String]
+// n2: Nat = Succ()
+val n3: Nat = getIdx0[ISB, Boolean]
+// n3: Nat = Succ()
+
+// 型パラメータを使ってNatを自由にする
+// よくあるミスなので入出力の型を自由にしておくことを忘れないようにする
+def getIdx[C <: Coproduct, A](implicit idx: IndexOf[C, A]): idx.Out = {
+  idx()
+}
+
+val m1 = getIdx[ISB, Int]
+// m1: _0 = shapeless._0@1d12be22
+val m2 = getIdx[ISB, String]
+// m2: Succ[_0] = Succ()
+val m3 = getIdx[ISB, Boolean]
+// m3: Succ[Succ[_0]] = Succ()
+
+def check[N <: Nat](n: N, m: Int)(implicit ev: ops.nat.ToInt[N]): Boolean = {
+  ev() == m
+}
+
+check(m1, 0)
+// res0: Boolean = true
+check(m2, 1)
+// res1: Boolean = true
+check(m3, 2)
+// res2: Boolean = true
+#+end_example
+
+**** Opsを使う上での注意点
+
+**Opsを使う際は、入出力する型に注意が必要です。** この例にもあるように、出力型を =Nat=
+と書いてしまうと、以下のような事が起こり、正しく結果を導けなくなります。
+
+0. 前提として、後続の処理で型情報を利用するためには、
+   なるだけ具体的(narrow)な型をコンパイラが知っている必要がある
+0. 返り値の型を =Nat= にすると、型が具体的な =Nat= に固定され、出力された値は単なる =Nat=
+   として扱われる(wideningが発生する)ため、具体的な型情報が消失する(どの =Nat= なのかは消失する)
+0. 具体的な型情報が不明になるので、後続の処理では型レベルの数値が分からなくなる
+
+これを防ぐためには、以下のことを心掛けてください:
+
+- 引数や返り値の型として、直接 =HList= や =Coproduct= 、 =Nat= を指定しない。
+- 引数や返り値の型はパラメータ化し、 =H <: HList= 、 =C <: Coproduct= 、 =N <: Nat=
+  のように型境界を用いた表現にするか、 =Nat.Out= のような =Out= 型を活用する
+  - こうすることで型が自由になり、コンパイラがより具体的な型を推論できるようになる
+
+*** wip
+** =hlist.*=
+*** wip
+** =record.*=
+*** =record.Selector= -- キーをもとに =Record= からフィールドを取り出す
+
+=shapeless.ops.record.Selector= は、キーを使って =Record= からフィールドを取り出します。
+
+#+begin_example scala
+import shapeless._
+import syntax.singleton._ // for ->>
+import record._ // for .get
+
+val r = ("foo" ->> 42) :: ("bar" ->> 666) :: ("buzz" ->> 100) :: HNil
+// r: Int with labelled.KeyTag["foo", Int] :: Int with labelled.KeyTag["bar", Int] :: Int with labelled.KeyTag["buzz", Int] :: HNil = 42 :: 666 :: 100 :: HNil
+
+// getメソッドがSelectorを要求する
+r.get("foo")
+// res0: Int = 42
+#+end_example
+
+=Selector= はよく使われるため、 =shapeless.record= を =import= して使えるようになる =.get=
+メソッドとして使うことができます。
+
+メソッド内で使う場合などは =implicit= を使って =Selector= を要求します:
+
+#+begin_example scala
+import shapeless.ops.record.Selector
+def getFooBar[R <: HList](r: R)(
+  implicit sf: Selector[R, "foo"],
+  sb: Selector[R, "bar"],
+): String = {
+  val foo = r.get("foo")
+  val bar = r.get("bar")
+  s"$foo, $bar"
+}
+
+getFooBar(r) // : String = "42, 666"
+#+end_example
+
+*** =record.SelectAll= -- 同時に複数のフィールドを取得する
+
+=shapeless.ops.record.SelectAll= は、前項で説明した =Selector= と似ていますが、
+同時に複数のフィールドを取得します。
+
+#+begin_example scala
+import shapeless._
+import syntax.singleton._ // for ->>
+import ops.record.SelectAll
+
+val r = ("foo" ->> 42) :: ("bar" ->> 666) :: ("buzz" ->> 100) :: HNil
+// r: Int with labelled.KeyTag["foo", Int] :: Int with labelled.KeyTag["bar", Int] :: Int with labelled.KeyTag["buzz", Int] :: HNil = 42 :: 666 :: 100 :: HNil
+
+def getFooBar[R <: HList](r: R)(
+  implicit saf: SelectAll[R, "foo" :: "bar" :: HNil]
+): String = {
+  // pattern matchできて便利
+  val f :: b :: HNil = saf(r)
+  s"$f, $b"
+}
+
+getFooBar(r)
+// res0: String = "42, 666"
+#+end_example
+
+=Selector= がキーの型を受け取っていたのと異なり、 =SelectAll= はキーの =HList=
+を受け取っていることに注目してください。そして、 =SelectAll.apply= は =HList= を返すため、
+これをこのまま分割代入できます。
+
 * Further Reading
 
 - [[https://github.com/milessabin/shapeless/blob/main/core/shared/src/main/scala/shapeless/lenses.scala]] には、[[https://www.optics.dev/Monocle/][Monocle]]にも登場する =Lens= との組み合わせが実装されています。

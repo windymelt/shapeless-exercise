@@ -2,6 +2,7 @@
 #+author: Windymelt
 #+date:   2022-12-12
 
+#+html_head: <meta name="description" content="プログラミング言語Scalaの代数的データ型ライブラリShapelessの入門記事です。HListの操作からRecord、Opsなどを扱います。">
 #+html_head: <style> @font-face {font-family: "Berkeley Mono"; src: url("https://www.3qe.us/webfont/BerkeleyMono-Regular.woff2") format("woff2"), url("https://www.3qe.us/webfont/BerkeleyMono-Regular.woff") format("woff"); font-display: swap; } </style>
 
 #+html_head: <style> p { line-height:1.2; } pre, code { font-family: Berkeley Mono; } </style>

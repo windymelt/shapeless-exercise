@@ -225,7 +225,7 @@ val hlis: IntStringHList = 42 :: "foo" :: HNil
 =shapeless.::[Int, shapeless.::[String, HNil]]= がリストのような形式になっているのが分かるはずです。
 Scalaには2-arityの型を中置する記法がある[fn::https://stackoverflow.com/questions/33347955/real-life-examples-of-scala-infix-types に型中置の事例が紹介されています。]ため、これを =Int :: String :: HNil= と書けるのです。
 
-#+BEGIN_SRC dot :file hlist.png :exports results :cache yes
+#+BEGIN_SRC dot :file hlist.gif :exports results :cache yes
   digraph {
     is[label="::"];
     i[label="Int"];
@@ -239,8 +239,8 @@ Scalaには2-arityの型を中置する記法がある[fn::https://stackoverflow
   }
 #+END_SRC
 
-#+RESULTS[1259b5d991ffb75a6fd23671e1565095c737c2bd]:
-[[file:hlist.png]]
+#+RESULTS[53b7764e4f4fc386982306c2888e629fa3cef025]:
+[[file:hlist.gif]]
 
 *** case class との違い
 
@@ -335,7 +335,7 @@ type IntOrString = Int :+: String :+: CNil // Either[Int, String]にほぼ対応
 
 =Coproduct= は =Either= と異なり、リスト状の構造になっています:
 
-#+BEGIN_SRC dot :file coproduct.png :exports results :cache yes
+#+BEGIN_SRC dot :file coproduct.gif :exports results :cache yes
   digraph {
     is[label=":+:"];
     i[label="Int"];
@@ -349,8 +349,8 @@ type IntOrString = Int :+: String :+: CNil // Either[Int, String]にほぼ対応
   }
 #+END_SRC
 
-#+RESULTS[5571865644b10ef1dab58257925d01a69f6141c8]:
-[[file:coproduct.png]]
+#+RESULTS[c3d641023e0f5a08b57e014730fb587330c049e9]:
+[[file:coproduct.gif]]
 
 このため、 _=Coproduct= は3つ以上の型を自然に組み合わせることができます。_ =HList= に似ていますね。
 
@@ -512,7 +512,7 @@ shapeless.Generic[Person].to(me1) // => "Windymelt" :: 29 :: "male" :: HNil
 shapeless.Generic[Person].from("Windymelt" :: 29 :: "male" :: HNil) // => Person("Windymelt", 29, "male")
 #+end_example
 
-#+BEGIN_SRC dot :file generic.png :exports results :cache yes
+#+BEGIN_SRC dot :file generic.gif :exports results :cache yes
   digraph {
   case[label="case class Person(name: String, age: Int, gender: String)"];
   hlist[label="String :: Int :: String :: HNil"];
@@ -521,8 +521,8 @@ shapeless.Generic[Person].from("Windymelt" :: 29 :: "male" :: HNil) // => Person
   }
 #+END_SRC
 
-#+RESULTS[b03de6bb249ccdff15eca4d12d020eba0bd0569c]:
-[[file:generic.png]]
+#+RESULTS[e0cc53119f56531d2925cbd3bf2d79a14b882f82]:
+[[file:generic.gif]]
 
 =to= と =from= がどちらの向きかを覚えるには少し慣れが必要です。
 
@@ -564,7 +564,7 @@ _=ops= と連携させるときは =Generic.Aux= を使う、と覚えておく�
 
 =HList= を変換する =Generic= があるように、 =Record= に対応する =LabelledGeneric= も存在します。
 
-#+BEGIN_SRC dot :file labelledgeneric.png :exports results :cache yes
+#+BEGIN_SRC dot :file labelledgeneric.gif :exports results :cache yes
   digraph {
   h[label="HList"];
   r[label="Record"];
@@ -577,8 +577,8 @@ _=ops= と連携させるときは =Generic.Aux= を使う、と覚えておく�
   }
 #+END_SRC
 
-#+RESULTS[8a8ee79c258785450ae9b1335946216e33e0c880]:
-[[file:labelledgeneric.png]]
+#+RESULTS[55f88bb9bcb967c32f86a22b54b1e1ac86eeb68a]:
+[[file:labelledgeneric.gif]]
 
 使い方は[[Generic][Generic]]とほぼ同じです:
 
@@ -657,7 +657,7 @@ greeting(42) // コンパイルエラー: HListに変換できません
 - 型パラメータ: 型を抽象化して変数的に扱う
 - 多相関数: 具体的な型はそのまま、型に応じた異なる処理を行う
 
-#+BEGIN_SRC dot :file poly.png :exports results :cache yes
+#+BEGIN_SRC dot :file poly.gif :exports results :cache yes
   digraph {
   rankdir = LR
   i1 [label=Int]
@@ -685,8 +685,8 @@ greeting(42) // コンパイルエラー: HListに変換できません
   }
 #+END_SRC
 
-#+RESULTS[3d51c363683fd5f729c232997451ed2fe5acb553]:
-[[file:poly.png]]
+#+RESULTS[4f5e6b985da07813976b2b261d19a93f87b06c83]:
+[[file:poly.gif]]
 
 *** PolyをHListに適用する
 
